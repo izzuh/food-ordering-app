@@ -5,7 +5,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   JWT_ACCESS_SECRET: z.string().min(16),
   JWT_REFRESH_SECRET: z.string().min(16),
-  PAYMENT_SECRET_KEY: z.string().min(1),
+  PAYSTACK_SECRET_KEY: z.string().min(1),
+  PAYSTACK_CALLBACK_URL: z.string().url().optional(),
 });
 
 export const env = envSchema.parse({
@@ -13,5 +14,6 @@ export const env = envSchema.parse({
   DATABASE_URL: process.env.DATABASE_URL,
   JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET,
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
-  PAYMENT_SECRET_KEY: process.env.PAYMENT_SECRET_KEY,
+  PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
+  PAYSTACK_CALLBACK_URL: process.env.PAYSTACK_CALLBACK_URL,
 });
