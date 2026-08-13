@@ -1,9 +1,24 @@
 import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../auth/auth.middleware.js';
 import { checkout } from './orders.service.js';
+import { getUserOrder, getUserOrders } from './orders.read.service.js';
 
 export const ordersRouter = Router();
 ordersRouter.use(requireAuth);
+
+ordersRouter.get('/', async (req: AuthenticatedRequest, res) => {
+  const orders = await getUserOrders(req.auth!.userId);
+  res.json({ success: true, data: { orders } });
+});
+
+ordersRouter.get('/:id', async (req: AuthenticatedRequest, res) => {
+  const order = await getUserOrder(req.auth!.userId, req.params.id);
+  if (!order) {
+    res.status(404).json({ success: false, error: { code: 'ORDER_NOT_FOUND', message: 'Order not found' } });
+    return;
+  }
+  res.json({ success: true, data: { order } });
+});
 
 ordersRouter.post('/checkout', async (req: AuthenticatedRequest, res) => {
   try {
