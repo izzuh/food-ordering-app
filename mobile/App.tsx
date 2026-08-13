@@ -1,34 +1,32 @@
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { SafeAreaView, StyleSheet, Text, View, Pressable } from 'react-native';
+import HomeScreen from './src/screens/customer/HomeScreen';
+import RestaurantMenuScreen from './src/screens/customer/RestaurantMenuScreen';
+import type { Restaurant } from './src/types/restaurant';
+
+const DEMO_ACCESS_TOKEN = '';
 
 export default function App() {
+  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Food Ordering App</Text>
-        <Text style={styles.subtitle}>Project foundation is ready.</Text>
-        <StatusBar style="auto" />
-      </View>
+      {selectedRestaurant ? (
+        <View style={styles.container}>
+          <Pressable onPress={() => setSelectedRestaurant(null)} style={styles.back}><Text>‹ Back</Text></Pressable>
+          <RestaurantMenuScreen restaurant={selectedRestaurant} accessToken={DEMO_ACCESS_TOKEN} onCart={() => {}} />
+        </View>
+      ) : (
+        <HomeScreen onSelectRestaurant={setSelectedRestaurant} />
+      )}
+      <StatusBar style="auto" />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  subtitle: {
-    marginTop: 8,
-    fontSize: 16,
-  },
+  safeArea: { flex: 1 },
+  container: { flex: 1 },
+  back: { paddingHorizontal: 20, paddingVertical: 12 },
 });
