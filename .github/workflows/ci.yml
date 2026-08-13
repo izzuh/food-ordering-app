@@ -1,22 +1,18 @@
 name: CI
-
 on:
   push:
   pull_request:
-
 jobs:
   typecheck:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        app:
-          - backend
-          - mobile
+        app: [backend, mobile]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - name: Install dependencies
         working-directory: ${{ matrix.app }}
         run: npm install
