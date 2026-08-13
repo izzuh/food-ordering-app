@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "Food Ordering",
+    "slug": "food-ordering-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "plugins": ["@stripe/stripe-react-native"],
+    "ios": { "supportsTablet": true },
+    "android": {}
+  }
+}
