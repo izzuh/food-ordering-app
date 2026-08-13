@@ -1,14 +1,25 @@
 name: CI
-on: [push, pull_request]
+
+on:
+  push:
+  pull_request:
+
 jobs:
   typecheck:
     runs-on: ubuntu-latest
     strategy:
-      matrix: { app: [backend, mobile] }
-    defaults: { run: { working-directory: ${{ matrix.app }} } }
+      matrix:
+        app:
+          - backend
+          - mobile
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: npm install
-      - run: npm run typecheck
+        with:
+          node-version: 20
+      - name: Install dependencies
+        working-directory: ${{ matrix.app }}
+        run: npm install
+      - name: Typecheck
+        working-directory: ${{ matrix.app }}
+        run: npm run typecheck
