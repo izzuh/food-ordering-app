@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../auth/auth.middleware.js';
 import { claimDelivery, getRiderDeliveries, listAvailableDeliveries, updateDeliveryStatus } from './delivery.repository.js';
+import { getOrderDelivery, updateRiderLocation } from './delivery.location.repository.js';
 
 export const deliveryRouter = Router();
 deliveryRouter.use(requireAuth);
@@ -13,7 +14,17 @@ function requireRider(req: AuthenticatedRequest, res: any, next: any) {
   next();
 }
 
+deliveryRouter.get('/order/:orderId', async (req: AuthenticatedRequest, res) => {
+  const delivery = await getOrderDelivery(req.auth!.userId, req.params.orderId);
+  if (!delivery) {
+    res.status(404).json({ success: false, error: { code: 'DELIVERY_NOT_FOUND', message: 'Delivery not found' } });
+    return;
+  }
+  res.json({ success: true, data: { delivery } });
+});
+
 deliveryRouter.use(requireRider);
+
 deliveryRouter.get('/available', async (_req, res) => {
   const deliveries = await listAvailableDeliveries();
   res.json({ success: true, data: { deliveries } });
@@ -42,6 +53,21 @@ deliveryRouter.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
   const delivery = await updateDeliveryStatus(req.auth!.userId, req.params.id, status);
   if (!delivery) {
     res.status(404).json({ success: false, error: { code: 'DELIVERY_NOT_FOUND', message: 'Delivery not found' } });
+    return;
+  }
+  res.json({ success: true, data: { delivery } });
+});
+
+deliveryRouter.patch('/:id/location', async (req: AuthenticatedRequest, res) => {
+  const latitude = Number(req.body.latitude);
+  const longitude = Number(req.body.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    res.status(400).json({ success: false, error: { code: 'INVALID_LOCATION', message: 'Valid latitude and longitude are required' } });
+    return;
+  }
+  const delivery = await updateRiderLocation(req.auth!.userId, req.params.id, latitude, longitude);
+  if (!delivery) {
+    res.status(404).json({ success: false, error: { code: 'DELIVERY_NOT_FOUND', message: 'Active delivery not found' } });
     return;
   }
   res.json({ success: true, data: { delivery } });
