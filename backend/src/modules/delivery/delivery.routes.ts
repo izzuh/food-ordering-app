@@ -1,0 +1,48 @@
+import { Router } from 'express';
+import { requireAuth, type AuthenticatedRequest } from '../auth/auth.middleware.js';
+import { claimDelivery, getRiderDeliveries, listAvailableDeliveries, updateDeliveryStatus } from './delivery.repository.js';
+
+export const deliveryRouter = Router();
+deliveryRouter.use(requireAuth);
+
+function requireRider(req: AuthenticatedRequest, res: any, next: any) {
+  if (req.auth?.role !== 'rider' && req.auth?.role !== 'admin') {
+    res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Rider access required' } });
+    return;
+  }
+  next();
+}
+
+deliveryRouter.use(requireRider);
+deliveryRouter.get('/available', async (_req, res) => {
+  const deliveries = await listAvailableDeliveries();
+  res.json({ success: true, data: { deliveries } });
+});
+
+deliveryRouter.get('/mine', async (req: AuthenticatedRequest, res) => {
+  const deliveries = await getRiderDeliveries(req.auth!.userId);
+  res.json({ success: true, data: { deliveries } });
+});
+
+deliveryRouter.post('/:id/claim', async (req: AuthenticatedRequest, res) => {
+  const delivery = await claimDelivery(req.auth!.userId, req.params.id);
+  if (!delivery) {
+    res.status(409).json({ success: false, error: { code: 'DELIVERY_UNAVAILABLE', message: 'Delivery is no longer available' } });
+    return;
+  }
+  res.json({ success: true, data: { delivery } });
+});
+
+deliveryRouter.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
+  const status = req.body.status;
+  if (!['picked_up', 'delivered', 'cancelled'].includes(status)) {
+    res.status(400).json({ success: false, error: { code: 'INVALID_STATUS', message: 'Invalid delivery status' } });
+    return;
+  }
+  const delivery = await updateDeliveryStatus(req.auth!.userId, req.params.id, status);
+  if (!delivery) {
+    res.status(404).json({ success: false, error: { code: 'DELIVERY_NOT_FOUND', message: 'Delivery not found' } });
+    return;
+  }
+  res.json({ success: true, data: { delivery } });
+});
