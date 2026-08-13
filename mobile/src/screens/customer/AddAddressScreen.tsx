@@ -1,0 +1,9 @@
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { createAddress } from '../../services/address.service';
+export default function AddAddressScreen({ accessToken, onSaved }: { accessToken: string; onSaved: () => void }) {
+  const [recipientName, setRecipientName] = useState(''); const [phone, setPhone] = useState(''); const [addressLine, setAddressLine] = useState(''); const [city, setCity] = useState(''); const [postcode, setPostcode] = useState(''); const [saving, setSaving] = useState(false);
+  async function save() { if (!recipientName || !phone || !addressLine || !city || !postcode) return; setSaving(true); try { await createAddress(accessToken, { recipientName, phone, addressLine, city, postcode, country: 'GB', isDefault: true }); onSaved(); } finally { setSaving(false); } }
+  return <View style={styles.container}><Text style={styles.heading}>Add delivery address</Text>{[['Recipient name', recipientName, setRecipientName], ['Phone', phone, setPhone], ['Address', addressLine, setAddressLine], ['City', city, setCity], ['Postcode', postcode, setPostcode]].map(([placeholder, value, setter]) => <TextInput key={placeholder as string} placeholder={placeholder as string} value={value as string} onChangeText={setter as any} style={styles.input} />)}<Pressable disabled={saving} onPress={save} style={styles.button}><Text style={styles.buttonText}>{saving ? 'Saving…' : 'Save address'}</Text></Pressable></View>;
+}
+const styles = StyleSheet.create({ container: { flex: 1, padding: 20, gap: 12 }, heading: { fontSize: 28, fontWeight: '800', marginBottom: 8 }, input: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 12, padding: 14 }, button: { marginTop: 8, backgroundColor: '#111827', padding: 15, borderRadius: 12, alignItems: 'center' }, buttonText: { color: '#fff', fontWeight: '700' } });
