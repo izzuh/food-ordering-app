@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authRouter } from '../modules/auth/auth.routes.js';
+import { addressesRouter } from '../modules/addresses/addresses.routes.js';
 import { cartRouter } from '../modules/cart/cart.routes.js';
 import { ordersRouter } from '../modules/orders/orders.routes.js';
 import { paymentsRouter } from '../modules/payments/payments.routes.js';
@@ -14,3 +15,4 @@ apiRouter.use('/restaurants', restaurantsRouter);
 apiRouter.use('/cart', cartRouter);
 apiRouter.use('/orders', ordersRouter);
 apiRouter.use('/payments', paymentsRouter);
+apiRouter.use('/addresses', addressesRouter);
