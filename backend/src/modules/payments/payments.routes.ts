@@ -1,33 +1,4 @@
-import { Router } from 'express';
-import { requireAuth, type AuthenticatedRequest } from '../auth/auth.middleware.js';
-import { initializePayment, verifyPayment } from './payments.service.js';
-
-export const paymentsRouter = Router();
-paymentsRouter.use(requireAuth);
-
-paymentsRouter.post('/initialize', async (req: AuthenticatedRequest, res) => {
-  try {
-    const { orderId } = req.body;
-    if (!orderId || typeof orderId !== 'string') {
-      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'orderId is required' } });
-      return;
-    }
-    const result = await initializePayment(req.auth!.userId, orderId);
-    res.status(201).json({ success: true, data: result });
-  } catch (error) {
-    const code = error instanceof Error ? error.message : 'PAYMENT_ERROR';
-    const status = code === 'ORDER_NOT_FOUND' ? 404 : code === 'ORDER_ALREADY_PAID' ? 409 : 400;
-    res.status(status).json({ success: false, error: { code, message: 'Unable to initialize payment' } });
-  }
-});
-
-paymentsRouter.get('/verify/:reference', async (req: AuthenticatedRequest, res) => {
-  try {
-    const result = await verifyPayment(req.auth!.userId, req.params.reference);
-    res.json({ success: true, data: result });
-  } catch (error) {
-    const code = error instanceof Error ? error.message : 'PAYMENT_VERIFICATION_ERROR';
-    const status = code === 'PAYMENT_NOT_FOUND' ? 404 : 400;
-    res.status(status).json({ success: false, error: { code, message: 'Unable to verify payment' } });
-  }
-});
+import { Router } from 'express'; import { requireAuth, type AuthenticatedRequest } from '../auth/auth.middleware.js'; import { initializePayment, verifyPayment } from './payments.service.js';
+export const paymentsRouter = Router(); paymentsRouter.use(requireAuth);
+paymentsRouter.post('/initialize', async (req: AuthenticatedRequest, res) => { try { const { orderId } = req.body; if (!orderId || typeof orderId !== 'string') { res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'orderId is required' } }); return; } const result = await initializePayment(req.auth!.userId, orderId); res.status(201).json({ success: true, data: result }); } catch (error) { const code = error instanceof Error ? error.message : 'PAYMENT_ERROR'; const status = code === 'ORDER_NOT_FOUND' ? 404 : code === 'ORDER_ALREADY_PAID' ? 409 : 400; res.status(status).json({ success: false, error: { code, message: 'Unable to initialize payment' } }); } });
+paymentsRouter.get('/verify/:paymentIntentId', async (req: AuthenticatedRequest, res) => { try { const result = await verifyPayment(req.auth!.userId, req.params.paymentIntentId); res.json({ success: true, data: result }); } catch (error) { const code = error instanceof Error ? error.message : 'PAYMENT_VERIFICATION_ERROR'; const status = code === 'PAYMENT_NOT_FOUND' ? 404 : 400; res.status(status).json({ success: false, error: { code, message: 'Unable to verify payment' } }); } });
