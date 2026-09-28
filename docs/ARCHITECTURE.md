@@ -1,71 +1,201 @@
-# Food Ordering App Architecture
+# Food Ordering App — Architecture
 
-## Stack
-- Mobile: React Native + Expo + TypeScript
-- API: Node.js + Express + TypeScript
-- Database: PostgreSQL
-- Payments: Stripe PaymentIntents + Stripe webhooks
-- Authentication: JWT access tokens
+## 1. Purpose
 
-## Actors
-- Customer: browse restaurants, manage cart, checkout, pay, track orders
-- Restaurant owner: receive orders, accept, prepare, mark ready for delivery
-- Rider: view available deliveries, claim jobs, update delivery status/location
-- Admin: privileged restaurant/order access
+This document defines the technical architecture for the food-ordering platform. The initial product is a customer-facing React Native mobile application that lets users discover restaurants, browse menus, create carts, place orders, and make payments.
 
-## Request flow
-`Mobile -> Express API -> module service -> PostgreSQL / Stripe`
+The architecture is designed to grow into a multi-role platform supporting customers, restaurant operators, delivery riders, and administrators.
 
-The API is mounted at `/api/v1`. Stripe's webhook is mounted separately at `/api/v1/payments/webhook` and receives the raw request body so the signature can be verified.
+## 2. Initial technology direction
 
-## Core modules
-- auth
-- restaurants
-- cart
-- addresses
-- orders
-- payments
-- restaurant-orders
-- delivery
+### Mobile
+- React Native
+- TypeScript
+- Expo
+- React Navigation
+- Redux Toolkit for shared client state
+- Typed API service layer
 
-Each module keeps HTTP routes, business logic and data access separate where practical.
+### Backend
+- Node.js
+- TypeScript
+- Express
+- REST API
+- PostgreSQL as the target relational database
 
-## Order lifecycle
-`pending_payment -> confirmed -> accepted -> preparing -> ready_for_delivery`
+### Integrations
+- Payment gateway: to be selected during payment implementation
+- Push notifications: Firebase Cloud Messaging
+- Maps/location: to be selected during delivery implementation
 
-A restaurant marking an order `ready_for_delivery` creates a delivery record transactionally. Rider status then progresses `assigned -> accepted -> picked_up -> delivered`.
+## 3. Repository structure
 
-## Payment lifecycle
-1. Customer selects an address.
-2. Checkout creates an order using server-side menu prices.
-3. API creates a Stripe PaymentIntent in GBP.
-4. Mobile opens Stripe PaymentSheet with the client secret.
-5. Stripe sends a signed webhook after payment changes state.
-6. API verifies amount/currency/reference and marks payment/order paid atomically.
+```text
+food-ordering-app/
+├── mobile/          # React Native application
+├── backend/         # API and business logic
+├── admin/           # Future administration/restaurant dashboard
+├── docs/            # Product and technical documentation
+└── README.md
+```
 
-The mobile client never decides whether an order is paid.
+## 4. Mobile architecture
 
-## Money
-All monetary values are integer minor units. UK orders use GBP, so `£12.50` is represented as `1250`.
+The mobile application follows feature-oriented organization with clear separation between presentation, state, API services, and shared utilities.
 
-## Database
-Run the initial migration with `npm run migrate` from `backend` after setting `DATABASE_URL`.
+```text
+mobile/src/
+├── components/      # reusable UI components
+├── features/        # auth, restaurants, food, cart, orders, payments, profile
+├── navigation/      # navigation stacks/tabs
+├── services/        # HTTP client and external services
+├── store/           # Redux store and slices
+├── hooks/           # reusable React hooks
+├── types/           # shared TypeScript types
+├── utils/           # pure helper functions
+├── constants/       # configuration constants
+└── theme/           # design tokens and theme
+```
 
-## Environment
-Backend requires:
-- `DATABASE_URL`
-- `JWT_ACCESS_SECRET`
-- `JWT_REFRESH_SECRET`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
+## 5. Backend architecture
 
-Mobile requires `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
+The backend uses a layered approach:
 
-## Security requirements before production
-- Use production Stripe keys only in deployment secrets.
-- Configure Stripe webhook endpoint and signing secret.
-- Restrict CORS to known mobile/web origins where applicable.
-- Add request validation/rate limits to every public endpoint.
-- Enable PostgreSQL backups and encrypted connections.
-- Use HTTPS for every deployed API endpoint.
-- Add observability, crash reporting and payment/order alerts.
+```text
+Request
+  ↓
+Route
+  ↓
+Authentication / Validation Middleware
+  ↓
+Controller
+  ↓
+Service / Business Logic
+  ↓
+Repository / Data Access
+  ↓
+PostgreSQL
+```
+
+Suggested structure:
+
+```text
+backend/src/
+├── config/
+├── controllers/
+├── middleware/
+├── routes/
+├── services/
+├── repositories/
+├── models/
+├── validators/
+├── types/
+└── utils/
+```
+
+## 6. Core domain modules
+
+1. Authentication and users
+2. Restaurants
+3. Menus and food items
+4. Cart
+5. Orders
+6. Payments
+7. Addresses
+8. Notifications
+9. Reviews
+10. Delivery
+11. Administration
+
+## 7. Core order lifecycle
+
+```text
+Cart
+  ↓
+Checkout
+  ↓
+Payment initialization
+  ↓
+Payment verification
+  ↓
+Order created
+  ↓
+Restaurant accepts
+  ↓
+Food preparing
+  ↓
+Ready for delivery
+  ↓
+Rider assigned
+  ↓
+Out for delivery
+  ↓
+Delivered
+```
+
+Payment verification must be performed server-side. The mobile application must not be treated as authoritative for successful payment status.
+
+## 8. Security principles
+
+- HTTPS in all non-local environments
+- Passwords hashed server-side
+- Short-lived access tokens with refresh-token strategy
+- Role-based authorization
+- Request validation
+- Rate limiting on authentication-sensitive endpoints
+- Secrets stored in environment variables or a secret manager
+- Payment credentials never bundled into the mobile application
+- Payment webhook signatures verified server-side
+- Do not store raw card details in the application database
+
+## 9. State management
+
+Redux Toolkit should contain only state that needs to be shared across screens or persisted according to product requirements. Server data should have a clearly defined caching strategy. Local UI state should remain inside components where practical.
+
+## 10. API conventions
+
+Base path:
+
+```text
+/api/v1
+```
+
+Examples:
+
+```text
+POST /api/v1/auth/register
+POST /api/v1/auth/login
+GET  /api/v1/restaurants
+GET  /api/v1/restaurants/:restaurantId
+GET  /api/v1/restaurants/:restaurantId/menu
+POST /api/v1/orders
+GET  /api/v1/orders
+GET  /api/v1/orders/:orderId
+POST /api/v1/payments/initialize
+POST /api/v1/payments/verify
+```
+
+Responses should use consistent JSON envelopes and HTTP status codes. API contracts will be documented in `docs/api.md` as implementation proceeds.
+
+## 11. Testing strategy
+
+- Unit tests for business rules and utilities
+- API integration tests for critical endpoints
+- Component tests for important mobile interactions
+- End-to-end tests for registration, ordering, payment, and order tracking flows
+
+## 12. Delivery strategy
+
+Development should proceed in small, reviewable branches. Each major feature should have a focused branch and pull request. Production payment credentials and other secrets must never be committed to Git.
+
+## 13. Architectural decisions still to finalize
+
+- Exact Expo/native configuration
+- PostgreSQL provider
+- Authentication provider versus application-managed authentication
+- Payment provider
+- Maps provider
+- Push notification setup
+- Image storage provider
+- Deployment platform
+- Delivery tracking architecture

@@ -4,8 +4,17 @@
     "slug": "food-ordering-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
-    "plugins": ["@stripe/stripe-react-native"],
-    "ios": { "supportsTablet": true },
+    "plugins": [
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.foodordering"
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
     "android": {}
   }
 }
