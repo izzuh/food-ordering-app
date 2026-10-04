@@ -7,34 +7,51 @@ export default function PaymentScreen({ accessToken, orderId, onPaid, onBack }: 
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     (async () => {
       try {
         const result = await initializePayment(accessToken, orderId);
-        setPaymentIntentId(result.checkout.id);
         const { error: sheetError } = await initPaymentSheet({
           merchantDisplayName: 'Food Ordering',
           paymentIntentClientSecret: result.checkout.client_secret,
-          allowsDelayedPaymentMethods: true,
+          allowsDelayedPaymentMethods: false,
         });
         if (sheetError) throw new Error(sheetError.message);
+        if (!active) return;
+        setPaymentIntentId(result.checkout.id);
         setReady(true);
-      } catch (e) { setError(e instanceof Error ? e.message : 'Unable to prepare payment'); }
-      finally { setLoading(false); }
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Unable to prepare payment');
+      } finally {
+        if (active) setLoading(false);
+      }
     })();
+    return () => { active = false; };
   }, [accessToken, orderId, initPaymentSheet]);
 
   async function pay() {
     setError(null);
-    const { error: paymentError } = await presentPaymentSheet();
-    if (paymentError) { setError(paymentError.message); return; }
-    if (!paymentIntentId) return;
-    const verification = await verifyPayment(accessToken, paymentIntentId);
-    if (verification.status === 'paid') onPaid();
-    else setError('Payment is not confirmed yet. Please try again shortly.');
+    setPaying(true);
+    try {
+      const { error: paymentError } = await presentPaymentSheet();
+      if (paymentError) {
+        setError(paymentError.message);
+        return;
+      }
+      if (!paymentIntentId) throw new Error('Payment session is unavailable.');
+      const verification = await verifyPayment(accessToken, paymentIntentId);
+      if (verification.status === 'paid') onPaid();
+      else setError('Payment is not confirmed yet. Please try again shortly.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Payment could not be completed.');
+    } finally {
+      setPaying(false);
+    }
   }
 
   return <View style={styles.container}>
@@ -42,8 +59,8 @@ export default function PaymentScreen({ accessToken, orderId, onPaid, onBack }: 
     <Text style={styles.description}>Your payment is processed securely by Stripe.</Text>
     {loading && <ActivityIndicator />}
     {error && <Text style={styles.error}>{error}</Text>}
-    <Pressable disabled={!ready || loading} onPress={pay} style={styles.button}><Text style={styles.buttonText}>{loading ? 'Preparing…' : 'Pay securely'}</Text></Pressable>
-    <Pressable onPress={onBack} style={styles.back}><Text>Back</Text></Pressable>
+    <Pressable disabled={!ready || loading || paying} onPress={pay} style={styles.button}><Text style={styles.buttonText}>{paying ? 'Processing…' : loading ? 'Preparing…' : 'Pay securely'}</Text></Pressable>
+    <Pressable disabled={paying} onPress={onBack} style={styles.back}><Text>Back</Text></Pressable>
   </View>;
 }
 
