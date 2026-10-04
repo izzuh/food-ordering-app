@@ -1,12 +1,12 @@
 {
-  "devDependencies": {
-    "@types/node": "^26.6.3",
-    "@types/react": "~19.2.4",
-    "typescript": "~6.0.3"
-  },
-  "dependencies": {
-    "expo": "^57.0.25",
-    "react": "19.2.3",
-    "react-native": "0.86.3"
+  "name": "food-ordering-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "backend": "npm --prefix backend run dev",
+    "mobile": "npm --prefix mobile start",
+    "install:all": "npm --prefix backend install && npm --prefix mobile install",
+    "typecheck": "npm --prefix backend run typecheck && npm --prefix mobile run typecheck"
   }
 }
