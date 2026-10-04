@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../auth/auth.middleware.js';
-import { claimDelivery, getRiderDeliveries, listAvailableDeliveries, updateDeliveryStatus } from './delivery.repository.js';
+import { claimDelivery, getRiderDelivery, getRiderDeliveries, listAvailableDeliveries, updateDeliveryStatus } from './delivery.repository.js';
 import { getOrderDelivery, updateRiderLocation } from './delivery.location.repository.js';
 
 export const deliveryRouter = Router();
@@ -45,8 +45,9 @@ deliveryRouter.post('/:id/claim', async (req: AuthenticatedRequest, res) => {
 });
 
 deliveryRouter.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
+  const deliveryId = String(req.params.id);
   const status = req.body.status;
-  const current = await getOrderDelivery(req.auth!.userId, String(req.params.id));
+  const current = await getRiderDelivery(req.auth!.userId, deliveryId);
   if (!current) {
     res.status(404).json({ success: false, error: { code: 'DELIVERY_NOT_FOUND', message: 'Delivery not found' } });
     return;
@@ -61,7 +62,7 @@ deliveryRouter.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
     return;
   }
 
-  const delivery = await updateDeliveryStatus(req.auth!.userId, String(req.params.id), status);
+  const delivery = await updateDeliveryStatus(req.auth!.userId, deliveryId, status);
   res.json({ success: true, data: { delivery } });
 });
 
