@@ -51,4 +51,9 @@ export async function updateItem(cartId: string, menuItemId: string, quantity: n
 
 export async function removeItem(cartId: string, menuItemId: string): Promise<void> {
   await db.query(`DELETE FROM cart_items WHERE cart_id = $1 AND menu_item_id = $2`, [cartId, menuItemId]);
+  await db.query(
+    `UPDATE carts SET restaurant_id = NULL, updated_at = NOW()
+     WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM cart_items WHERE cart_id = $1)`,
+    [cartId],
+  );
 }
