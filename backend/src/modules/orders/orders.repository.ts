@@ -36,18 +36,25 @@ export async function createOrderFromCart(userId: string, addressId: string) {
       name: string;
       price_minor: number;
       quantity: number;
+      restaurant_id: string;
+      is_available: boolean;
     }>(
-      `SELECT ci.menu_item_id, mi.name, mi.price_minor, ci.quantity
+      `SELECT ci.menu_item_id, mi.name, mi.price_minor, ci.quantity,
+              mi.restaurant_id, mi.is_available
        FROM cart_items ci
        JOIN menu_items mi ON mi.id = ci.menu_item_id
        WHERE ci.cart_id = $1
-         AND mi.restaurant_id = $2
-         AND mi.is_available = TRUE
        FOR UPDATE OF mi`,
-      [cartRow.id, cartRow.restaurant_id],
+      [cartRow.id],
     );
 
     if (items.rows.length === 0) throw new Error('CART_EMPTY');
+    if (items.rows.some(item => item.restaurant_id !== cartRow.restaurant_id)) {
+      throw new Error('CART_RESTAURANT_MISMATCH');
+    }
+    if (items.rows.some(item => !item.is_available)) {
+      throw new Error('MENU_ITEM_UNAVAILABLE');
+    }
 
     const subtotal = items.rows.reduce((sum, item) => sum + item.price_minor * item.quantity, 0);
     const deliveryFee = 0;
