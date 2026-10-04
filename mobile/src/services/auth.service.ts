@@ -23,6 +23,11 @@ export async function login(input: LoginInput): Promise<AuthResponse> {
   return response.data.data;
 }
 
+export async function refreshSession(refreshToken: string): Promise<AuthResponse> {
+  const response = await api.post<{ success: true; data: AuthResponse }>('/auth/refresh', { refreshToken });
+  return response.data.data;
+}
+
 export async function getCurrentUser(accessToken: string): Promise<User> {
   const response = await api.get<{ success: true; data: { user: User } }>('/auth/me', {
     headers: { Authorization: `Bearer ${accessToken}` },
