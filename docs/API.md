@@ -2,13 +2,18 @@
 
 Base URL: `/api/v1`
 
+## Health
+- `GET /health`
+
 ## Auth
 - `POST /auth/register`
 - `POST /auth/login`
+- `POST /auth/refresh`
 - `GET /auth/me`
 
 ## Customer
 - `GET /restaurants`
+- `GET /restaurants/:id`
 - `GET /restaurants/:id/menu`
 - `GET /cart`
 - `POST /cart/items`
@@ -35,6 +40,8 @@ Valid restaurant transitions:
 - `confirmed -> cancelled`
 - `accepted -> cancelled`
 
+When an order becomes `ready_for_delivery`, a delivery record is created if one does not already exist.
+
 ## Rider/admin
 - `GET /delivery/available`
 - `GET /delivery/mine`
@@ -42,7 +49,13 @@ Valid restaurant transitions:
 - `PATCH /delivery/:id/status`
 - `PATCH /delivery/:id/location`
 
+Valid rider transitions:
+- `assigned -> accepted` through claim
+- `accepted -> picked_up`
+- `accepted -> cancelled`
+- `picked_up -> delivered`
+
 ## Stripe
 - `POST /payments/webhook`
 
-The webhook does not use normal JSON parsing. Stripe's raw body is validated with `STRIPE_WEBHOOK_SECRET` before payment state is changed.
+The webhook is registered before normal JSON parsing. Stripe's raw request body is validated with `STRIPE_WEBHOOK_SECRET` before payment state is changed.
