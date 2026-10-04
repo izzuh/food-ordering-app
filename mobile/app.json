@@ -4,6 +4,7 @@
     "slug": "food-ordering-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
+    "scheme": "foodordering",
     "plugins": [
       [
         "@stripe/stripe-react-native",
