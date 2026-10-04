@@ -1,12 +1,17 @@
 import type { Response } from 'express';
 import type { AuthenticatedRequest } from './auth.middleware.js';
 import { loginSchema, registerSchema } from './auth.validation.js';
-import { AuthError, getCurrentUser, login, register } from './auth.service.js';
+import { AuthError, getCurrentUser, login, refresh, register } from './auth.service.js';
 
 function handleError(error: unknown, res: Response): void {
   if (error instanceof AuthError) {
     const status = error.code === 'EMAIL_EXISTS' ? 409 : 401;
-    res.status(status).json({ success: false, error: { code: error.code, message: error.code === 'EMAIL_EXISTS' ? 'Email is already registered' : 'Authentication failed' } });
+    const message = error.code === 'EMAIL_EXISTS'
+      ? 'Email is already registered'
+      : error.code === 'INVALID_CREDENTIALS'
+        ? 'Email or password is incorrect'
+        : 'Authentication failed';
+    res.status(status).json({ success: false, error: { code: error.code, message } });
     return;
   }
 
@@ -37,6 +42,20 @@ export async function loginController(req: AuthenticatedRequest, res: Response):
       res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid login data' } });
       return;
     }
+    handleError(error, res);
+  }
+}
+
+export async function refreshController(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const refreshToken = req.body?.refreshToken;
+    if (typeof refreshToken !== 'string' || refreshToken.length < 10) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'refreshToken is required' } });
+      return;
+    }
+    const result = await refresh(refreshToken);
+    res.status(200).json({ success: true, data: result });
+  } catch (error) {
     handleError(error, res);
   }
 }
