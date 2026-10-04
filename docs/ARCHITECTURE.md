@@ -2,157 +2,171 @@
 
 ## 1. Purpose
 
-This document defines the technical architecture for the food-ordering platform. The initial product is a customer-facing React Native mobile application that lets users discover restaurants, browse menus, create carts, place orders, and make payments.
+The product is a customer-facing React Native application backed by a Node.js/Express API and PostgreSQL. The MVP supports registration, authentication, restaurant discovery, menus, carts, delivery addresses, checkout, Stripe payments, order history, and basic order tracking.
 
-The architecture is designed to grow into a multi-role platform supporting customers, restaurant operators, delivery riders, and administrators.
+The backend also contains restaurant-operator and rider workflows that can be expanded after the customer MVP is stable.
 
-## 2. Initial technology direction
+## 2. Technology
 
 ### Mobile
 - React Native
+- Expo SDK 53
 - TypeScript
-- Expo
-- React Navigation
-- Redux Toolkit for shared client state
-- Typed API service layer
+- Axios
+- AsyncStorage
+- Stripe React Native SDK
+- Local screen state for the MVP shell
 
 ### Backend
 - Node.js
 - TypeScript
-- Express
-- REST API
-- PostgreSQL as the target relational database
-
-### Integrations
-- Payment gateway: to be selected during payment implementation
-- Push notifications: Firebase Cloud Messaging
-- Maps/location: to be selected during delivery implementation
+- Express 5
+- PostgreSQL
+- JWT access/refresh tokens
+- Zod validation
+- Stripe PaymentIntents and webhooks
 
 ## 3. Repository structure
 
 ```text
 food-ordering-app/
-├── mobile/          # React Native application
-├── backend/         # API and business logic
-├── admin/           # Future administration/restaurant dashboard
-├── docs/            # Product and technical documentation
+├── mobile/          # Expo React Native application
+├── backend/         # Express API and database migrations
+├── docs/            # Product, architecture, and API documentation
+├── scripts/         # Root development helpers
 └── README.md
 ```
 
 ## 4. Mobile architecture
 
-The mobile application follows feature-oriented organization with clear separation between presentation, state, API services, and shared utilities.
+The current MVP uses a small application shell in `mobile/App.tsx`. Authentication state is provided by `AuthContext`; screens call typed service functions that use the shared Axios client.
 
 ```text
-mobile/src/
-├── components/      # reusable UI components
-├── features/        # auth, restaurants, food, cart, orders, payments, profile
-├── navigation/      # navigation stacks/tabs
-├── services/        # HTTP client and external services
-├── store/           # Redux store and slices
-├── hooks/           # reusable React hooks
-├── types/           # shared TypeScript types
-├── utils/           # pure helper functions
-├── constants/       # configuration constants
-└── theme/           # design tokens and theme
+App.tsx
+  ↓
+AuthProvider
+  ↓
+Role-aware app shell
+  ↓
+Customer screens / Restaurant screens / Rider screens
+  ↓
+Service layer
+  ↓
+Express API
 ```
+
+The mobile project keeps shared types in `src/types`, API calls in `src/services`, authentication persistence in `src/context`, and reusable authentication screens under `src/screens/auth`.
 
 ## 5. Backend architecture
 
-The backend uses a layered approach:
+The backend is organized by domain module. Each module keeps its routes, service/repository logic, and types close together.
 
 ```text
-Request
+HTTP request
+  ↓
+Express middleware
   ↓
 Route
   ↓
-Authentication / Validation Middleware
+Service / business rules
   ↓
-Controller
-  ↓
-Service / Business Logic
-  ↓
-Repository / Data Access
-  ↓
-PostgreSQL
+Repository / PostgreSQL
 ```
 
-Suggested structure:
+The API also has security middleware for Helmet, CORS, JSON size limits, and rate limiting. Stripe webhooks are registered before normal JSON parsing so the exact raw body can be signature-verified.
+
+## 6. Authentication
+
+Registration and login return both an access token and a refresh token. Access tokens expire after 15 minutes; refresh tokens expire after 30 days.
+
+The mobile app stores both tokens in AsyncStorage and refreshes the session periodically. A failed refresh clears the local session and returns the user to authentication.
+
+The server never accepts a client-supplied role during registration; new accounts are customers by default.
+
+## 7. Customer order lifecycle
 
 ```text
-backend/src/
-├── config/
-├── controllers/
-├── middleware/
-├── routes/
-├── services/
-├── repositories/
-├── models/
-├── validators/
-├── types/
-└── utils/
-```
-
-## 6. Core domain modules
-
-1. Authentication and users
-2. Restaurants
-3. Menus and food items
-4. Cart
-5. Orders
-6. Payments
-7. Addresses
-8. Notifications
-9. Reviews
-10. Delivery
-11. Administration
-
-## 7. Core order lifecycle
-
-```text
+Register / Login
+  ↓
+Browse restaurants
+  ↓
+Restaurant menu
+  ↓
 Cart
   ↓
-Checkout
+Delivery address
   ↓
-Payment initialization
+Create pending-payment order
   ↓
-Payment verification
+Stripe PaymentIntent / PaymentSheet
   ↓
-Order created
+Server-side payment verification
+  ↓
+Order confirmed
   ↓
 Restaurant accepts
   ↓
-Food preparing
+Preparing
   ↓
 Ready for delivery
   ↓
-Rider assigned
-  ↓
-Out for delivery
+Delivery
   ↓
 Delivered
 ```
 
-Payment verification must be performed server-side. The mobile application must not be treated as authoritative for successful payment status.
+The server calculates prices from current menu data and stores price/name snapshots in `order_items`. The mobile client never decides the final payable amount or payment status.
 
-## 8. Security principles
+## 8. Currency and money
 
-- HTTPS in all non-local environments
-- Passwords hashed server-side
-- Short-lived access tokens with refresh-token strategy
-- Role-based authorization
-- Request validation
-- Rate limiting on authentication-sensitive endpoints
-- Secrets stored in environment variables or a secret manager
-- Payment credentials never bundled into the mobile application
-- Payment webhook signatures verified server-side
-- Do not store raw card details in the application database
+The MVP uses **GBP** consistently. Monetary values are integer minor units: `£12.50` is stored as `1250`.
 
-## 9. State management
+Orders and payments both use `GBP`, and Stripe receives the order currency from the trusted server-side order record.
 
-Redux Toolkit should contain only state that needs to be shared across screens or persisted according to product requirements. Server data should have a clearly defined caching strategy. Local UI state should remain inside components where practical.
+## 9. Payments
 
-## 10. API conventions
+The payment flow is:
+
+1. Customer creates an order in `pending_payment` state.
+2. Backend creates a Stripe PaymentIntent using the server-calculated order total.
+3. Mobile initializes Stripe PaymentSheet with the client secret.
+4. Customer completes payment in Stripe's native UI.
+5. Mobile may request server-side verification of the PaymentIntent.
+6. Stripe's signed webhook is the authoritative asynchronous payment signal.
+7. Backend marks the payment paid and moves the order to `confirmed`.
+
+Stripe secret keys and webhook secrets remain server-side. The mobile app receives only the publishable key.
+
+## 10. Restaurant and rider workflows
+
+Restaurant operators can view orders belonging to their own restaurant and use the controlled status sequence:
+
+```text
+confirmed → accepted → preparing → ready_for_delivery
+```
+
+Cancellation is allowed from `confirmed` and `accepted`.
+
+When an order becomes `ready_for_delivery`, a delivery record is created transactionally.
+
+Riders can claim an unassigned delivery and then progress:
+
+```text
+assigned → accepted → picked_up → delivered
+```
+
+Rider status changes are scoped to the authenticated rider and invalid transitions are rejected.
+
+## 11. Database
+
+The initial migration creates users, restaurants, menu categories/items, carts, addresses, orders, order items, payments, and deliveries. The migration is idempotent and can be run with:
+
+```text
+cd backend
+npm run migrate
+```
+
+## 12. API conventions
 
 Base path:
 
@@ -160,42 +174,34 @@ Base path:
 /api/v1
 ```
 
-Examples:
+Important endpoints include:
 
 ```text
 POST /api/v1/auth/register
 POST /api/v1/auth/login
+POST /api/v1/auth/refresh
+GET  /api/v1/auth/me
 GET  /api/v1/restaurants
-GET  /api/v1/restaurants/:restaurantId
-GET  /api/v1/restaurants/:restaurantId/menu
-POST /api/v1/orders
+GET  /api/v1/restaurants/:id/menu
+GET  /api/v1/cart
+POST /api/v1/cart/items
+GET  /api/v1/addresses
+POST /api/v1/orders/checkout
 GET  /api/v1/orders
-GET  /api/v1/orders/:orderId
+GET  /api/v1/orders/:id
 POST /api/v1/payments/initialize
-POST /api/v1/payments/verify
+GET  /api/v1/payments/verify/:paymentIntentId
+POST /api/v1/payments/webhook
 ```
 
-Responses should use consistent JSON envelopes and HTTP status codes. API contracts will be documented in `docs/api.md` as implementation proceeds.
+Successful responses use `{ success: true, data: ... }`; API errors use `{ success: false, error: { code, message } }`.
 
-## 11. Testing strategy
+## 13. Development workflow
 
-- Unit tests for business rules and utilities
-- API integration tests for critical endpoints
-- Component tests for important mobile interactions
-- End-to-end tests for registration, ordering, payment, and order tracking flows
+The repository root provides scripts for installing both applications, running both development processes, and typechecking both projects. CI uses the committed lockfiles and the same typecheck commands.
 
-## 12. Delivery strategy
+The `main` branch should remain untouched while changes are developed and verified on a working branch.
 
-Development should proceed in small, reviewable branches. Each major feature should have a focused branch and pull request. Production payment credentials and other secrets must never be committed to Git.
+## 14. Production requirements
 
-## 13. Architectural decisions still to finalize
-
-- Exact Expo/native configuration
-- PostgreSQL provider
-- Authentication provider versus application-managed authentication
-- Payment provider
-- Maps provider
-- Push notification setup
-- Image storage provider
-- Deployment platform
-- Delivery tracking architecture
+Before production, the project still needs automated tests, deployment configuration, database backups, observability, push notifications, a production Stripe webhook, HTTPS, and a formal restaurant/admin management interface.
