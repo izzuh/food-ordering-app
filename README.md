@@ -7,6 +7,7 @@ React Native + Expo mobile app with a Node.js/Express API and PostgreSQL databas
 - `mobile/` — Expo React Native customer/restaurant/rider app
 - `backend/` — Express API and database migrations
 - `docs/` — product, architecture, and API documentation
+- `scripts/` — root development helpers
 
 ## Prerequisites
 
@@ -42,9 +43,17 @@ From the `backend` directory:
 
 ```text
 npm run migrate
+npm run seed
 ```
 
-The migration is idempotent and creates the initial schema.
+The demo seed creates one restaurant and menu so the customer journey can be tested immediately. It also creates a development-only restaurant owner account:
+
+```text
+Email: demo-owner@example.com
+Password: Demo12345!
+```
+
+Do not use the demo credentials in production.
 
 ## Run the project
 
@@ -89,7 +98,7 @@ Run both TypeScript checks from the root:
 npm run typecheck
 ```
 
-The GitHub Actions workflow runs the same backend/mobile typechecks.
+The GitHub Actions workflow runs the same backend/mobile typechecks using the committed lockfiles.
 
 ## Currency
 
