@@ -25,6 +25,15 @@ export async function getRiderDeliveries(riderId: string) {
   return result.rows;
 }
 
+export async function getRiderDelivery(riderId: string, deliveryId: string) {
+  const result = await db.query(
+    `SELECT id, order_id, rider_id, status, rider_latitude, rider_longitude
+     FROM deliveries WHERE id = $1 AND rider_id = $2 LIMIT 1`,
+    [deliveryId, riderId],
+  );
+  return result.rows[0] ?? null;
+}
+
 export async function claimDelivery(riderId: string, deliveryId: string) {
   const result = await db.query(
     `UPDATE deliveries SET rider_id = $1, status = 'accepted', updated_at = NOW()
