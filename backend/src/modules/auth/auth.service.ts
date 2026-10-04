@@ -1,10 +1,10 @@
 import { createUser, findUserByEmail, findUserById } from './auth.repository.js';
 import { hashPassword, verifyPassword } from './password.js';
-import { createTokens } from './tokens.js';
+import { createTokens, verifyRefreshToken } from './tokens.js';
 import type { AuthTokens, AuthUser } from './auth.types.js';
 
 export class AuthError extends Error {
-  constructor(public readonly code: 'EMAIL_EXISTS' | 'INVALID_CREDENTIALS' | 'USER_NOT_FOUND') {
+  constructor(public readonly code: 'EMAIL_EXISTS' | 'INVALID_CREDENTIALS' | 'USER_NOT_FOUND' | 'INVALID_REFRESH_TOKEN') {
     super(code);
   }
 }
@@ -36,6 +36,18 @@ export async function login(email: string, password: string): Promise<{ user: Au
 
   const { password_hash: _passwordHash, ...user } = record;
   return { user, tokens: createTokens(user) };
+}
+
+export async function refresh(refreshToken: string): Promise<{ user: AuthUser; tokens: AuthTokens }> {
+  try {
+    const payload = verifyRefreshToken(refreshToken);
+    const user = await findUserById(payload.sub);
+    if (!user) throw new AuthError('USER_NOT_FOUND');
+    return { user, tokens: createTokens(user) };
+  } catch (error) {
+    if (error instanceof AuthError && error.code === 'USER_NOT_FOUND') throw error;
+    throw new AuthError('INVALID_REFRESH_TOKEN');
+  }
 }
 
 export async function getCurrentUser(id: string): Promise<AuthUser> {
